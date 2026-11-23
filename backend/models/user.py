@@ -48,13 +48,6 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=6)
 
-class PhoneSendOtpRequest(BaseModel):
-    phone: str = Field(..., min_length=8)
-
-class PhoneVerifyOtpRequest(BaseModel):
-    phone: str = Field(..., min_length=8)
-    otp: str = Field(..., min_length=4, max_length=10)
-
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None

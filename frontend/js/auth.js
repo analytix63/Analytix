@@ -60,42 +60,6 @@ const Auth = {
   },
 
   /**
-   * Phone Login: Sends OTP to registered mobile number
-   */
-  async sendPhoneOtp(phone) {
-    try {
-      return await API.post('/api/auth/phone/send-otp', { phone });
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
-   * Phone Login: Verifies SMS OTP, stores session and redirects by role
-   */
-  async loginWithPhone(phone, otp) {
-    try {
-      const response = await API.post('/api/auth/phone/verify-otp', { phone, otp });
-      API.setToken(response.access_token);
-      API.setUser(response.user);
-
-      API.toast(`Welcome back, ${response.user.full_name}!`, 'success');
-
-      setTimeout(() => {
-        if (response.user.role === 'admin') {
-          window.location.href = 'admin-dashboard.html';
-        } else {
-          window.location.href = 'member-dashboard.html';
-        }
-      }, 500);
-
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  /**
    * Forgot Password: Sends password reset link to user's email
    */
   async forgotPassword(email) {
