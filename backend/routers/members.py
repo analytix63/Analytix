@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from backend.services.auth_service import require_member, get_current_user
 from backend.database import db
-from backend.models.user import UserProfileOut, UserProfileUpdate
+from backend.models.user import UserProfileOut, UserProfileUpdate, PublicTeamMemberOut
 from backend.models.registration import LeaderboardEntry
 
 router = APIRouter(prefix="/api/members", tags=["Member Operations"])
@@ -101,8 +101,8 @@ async def get_teams_overview():
     moc_members = db.list_profiles(team="MOC")
 
     return {
-        "tech": [UserProfileOut(**m) for m in tech_members],
-        "design": [UserProfileOut(**m) for m in design_members],
-        "moc": [UserProfileOut(**m) for m in moc_members]
+        "tech": [PublicTeamMemberOut(**m) for m in tech_members],
+        "design": [PublicTeamMemberOut(**m) for m in design_members],
+        "moc": [PublicTeamMemberOut(**m) for m in moc_members]
     }
 

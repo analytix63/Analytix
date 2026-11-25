@@ -1,6 +1,8 @@
+import time
 import logging
 import httpx
-from fastapi import APIRouter, HTTPException, status, Depends
+from collections import defaultdict
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from backend.models.user import (
     UserRegister, 
     UserLogin, 
@@ -17,13 +19,45 @@ from backend.config import settings
 logger = logging.getLogger("analytix.auth")
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
+class SlidingWindowRateLimiter:
+    """Thread-safe sliding window IP rate limiter to defend against brute force and flooding."""
+    def __init__(self, max_requests: int, window_seconds: int):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+
+    def check(self, key: str):
+        now = time.time()
+        window_start = now - self.window_seconds
+        # Clean older entries
+        self.requests[key] = [t for t in self.requests[key] if t > window_start]
+        if len(self.requests[key]) >= self.max_requests:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many authentication attempts. Please wait a few moments before trying again."
+            )
+        self.requests[key].append(now)
+
+login_limiter = SlidingWindowRateLimiter(max_requests=30, window_seconds=60)
+register_limiter = SlidingWindowRateLimiter(max_requests=5, window_seconds=120)
+forgot_limiter = SlidingWindowRateLimiter(max_requests=5, window_seconds=120)
+
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
 @router.post("/register", response_model=TokenResponse)
-async def register(payload: UserRegister):
+async def register(payload: UserRegister, request: Request):
     """
     Register a new club member account.
     All new registrations are strictly assigned the 'member' role.
     Uses Supabase Auth and persists member profile.
     """
+    client_ip = get_client_ip(request)
+    register_limiter.check(client_ip)
+
     clean_email = payload.email.strip().lower()
     clean_phone = normalize_phone_number(payload.phone)
 
@@ -168,13 +202,16 @@ async def register(payload: UserRegister):
     )
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: UserLogin):
+async def login(payload: UserLogin, request: Request):
     """
     Authenticate a user via email and password using Supabase Authentication.
     Validates credentials, retrieves authoritative role from profiles table,
     and returns session access token.
     Provides clear, informative error messages for unconfirmed emails vs wrong passwords.
     """
+    client_ip = get_client_ip(request)
+    login_limiter.check(client_ip)
+
     email_clean = payload.email.strip().lower()
     
     if supabase_client and settings.is_supabase_configured:
@@ -293,11 +330,14 @@ async def login(payload: UserLogin):
 # --- FORGOT & RESET PASSWORD ---
 
 @router.post("/forgot-password")
-async def forgot_password(payload: ForgotPasswordRequest):
+async def forgot_password(payload: ForgotPasswordRequest, request: Request):
     """
     Sends a password recovery email using Supabase Auth.
     Security: Does not reveal whether the email exists.
     """
+    client_ip = get_client_ip(request)
+    forgot_limiter.check(client_ip)
+
     clean_email = payload.email.strip().lower()
 
     if supabase_client and settings.is_supabase_configured:
@@ -359,8 +399,21 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return UserProfileOut(**current_user)
 
 @router.post("/logout")
-async def logout(current_user: dict = Depends(get_current_user)):
+async def logout(request: Request, current_user: dict = Depends(get_current_user)):
     """
-    Invalidates user session.
+    Invalidates user session both locally and with Supabase Auth server-side.
     """
+    auth_header = request.headers.get("Authorization")
+    if auth_header and supabase_client and settings.is_supabase_configured:
+        token = auth_header.replace("Bearer ", "").strip()
+        try:
+            logout_url = f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/logout"
+            httpx.post(
+                logout_url,
+                headers={"apikey": settings.SUPABASE_KEY, "Authorization": f"Bearer {token}"},
+                timeout=5.0
+            )
+        except Exception as e:
+            logger.debug(f"Supabase remote sign_out call notice: {e}")
+
     return {"message": "Successfully logged out"}

@@ -123,9 +123,7 @@ const Auth = {
 
       if (user.role !== 'admin') {
         API.toast('Access denied. Administrator privileges required.', 'error');
-        setTimeout(() => {
-          window.location.href = 'member-dashboard.html';
-        }, 1000);
+        window.location.replace('member-dashboard.html');
         return null;
       }
 

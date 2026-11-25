@@ -114,6 +114,15 @@ const API = {
       .replace(/'/g, '&#39;');
   },
 
+  sanitizeUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    const clean = url.trim();
+    if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('/assets/')) {
+      return this.escapeHtml(clean);
+    }
+    return '';
+  },
+
   get(endpoint) {
     return this.request(endpoint, { method: 'GET' });
   },

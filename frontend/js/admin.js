@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Enforce Admin Authentication
   currentAdmin = await Auth.requireAdmin();
   if (!currentAdmin) return;
+  document.body.style.visibility = 'visible';
 
   setupNavigation();
   loadOverview();
@@ -566,12 +567,15 @@ async function loadMembers() {
       return;
     }
 
-    container.innerHTML = members.map(m => `
+    container.innerHTML = members.map(m => {
+      const safePhoto = API.sanitizeUrl(m.profile_photo);
+      const initial = API.escapeHtml((m.full_name || 'U').charAt(0));
+      return `
       <tr>
         <td>
           <div style="display: flex; align-items: center; gap: 10px;">
             <div class="user-avatar" style="width: 34px; height: 34px; font-size: 0.85rem;">
-              ${m.profile_photo ? `<img src="${m.profile_photo}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.onerror=null;this.textContent='${(m.full_name || 'U').charAt(0)}';">` : (m.full_name || 'U').charAt(0)}
+              ${safePhoto ? `<img src="${safePhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.onerror=null;this.textContent='${initial}';">` : initial}
             </div>
             <div>
               <strong>${API.escapeHtml(m.full_name)}</strong>
@@ -793,8 +797,9 @@ function loadAdminProfile() {
 
   const avatarCircle = document.getElementById('admin-avatar-circle');
   if (avatarCircle) {
-    if (currentAdmin.profile_photo) {
-      avatarCircle.innerHTML = `<img src="${currentAdmin.profile_photo}" alt="Avatar">`;
+    const safeAdminPhoto = API.sanitizeUrl(currentAdmin.profile_photo);
+    if (safeAdminPhoto) {
+      avatarCircle.innerHTML = `<img src="${safeAdminPhoto}" alt="Avatar">`;
     } else {
       avatarCircle.textContent = (currentAdmin.full_name || 'A').charAt(0).toUpperCase();
     }

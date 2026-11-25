@@ -460,8 +460,9 @@ function loadMemberProfileForm() {
 
   const avatarCircle = document.getElementById('member-avatar-circle');
   if (avatarCircle) {
-    if (currentMember.profile_photo) {
-      avatarCircle.innerHTML = `<img src="${currentMember.profile_photo}" alt="Avatar" onerror="this.onerror=null;this.textContent='M';">`;
+    const safeMemberPhoto = API.sanitizeUrl(currentMember.profile_photo);
+    if (safeMemberPhoto) {
+      avatarCircle.innerHTML = `<img src="${safeMemberPhoto}" alt="Avatar" onerror="this.onerror=null;this.textContent='M';">`;
     } else {
       avatarCircle.textContent = (currentMember.full_name || 'M').charAt(0).toUpperCase();
     }

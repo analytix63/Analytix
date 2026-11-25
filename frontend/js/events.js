@@ -69,7 +69,7 @@ async function loadPublicEvents(currentUser) {
       const cleanDesc = API.escapeHtml(ev.description);
       const cleanVenue = API.escapeHtml(ev.venue);
       const cleanInstructions = API.escapeHtml(ev.instructions || '');
-      const posterUrl = ev.poster_url || 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800';
+      const posterUrl = API.sanitizeUrl(ev.poster_url) || 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800';
 
       return `
         <div class="event-card">
@@ -158,7 +158,7 @@ async function loadPublicHackathons(currentUser) {
       const cleanLocation = API.escapeHtml(h.location);
       const cleanEligibility = API.escapeHtml(h.eligibility);
       const cleanSkills = API.escapeHtml(h.required_skills || '');
-      const posterUrl = h.poster_url || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800';
+      const posterUrl = API.sanitizeUrl(h.poster_url) || 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800';
 
       return `
         <div class="event-card">
@@ -248,7 +248,7 @@ async function loadPublicAnnouncements() {
       const cleanTitle = API.escapeHtml(a.title);
       const cleanCategory = API.escapeHtml(a.category || 'Notice');
       const cleanDesc = API.escapeHtml(a.description);
-      const imageUrl = a.image_url;
+      const imageUrl = API.sanitizeUrl(a.image_url);
 
       return `
         <div class="announcement-card" style="margin-bottom: 20px;">

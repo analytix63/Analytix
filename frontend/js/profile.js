@@ -34,8 +34,9 @@ function populateProfile() {
   document.getElementById('profile-header-email').textContent = currentUser.email;
 
   const avatar = document.getElementById('profile-avatar-preview');
-  if (currentUser.profile_photo) {
-    avatar.innerHTML = `<img src="${currentUser.profile_photo}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="Avatar">`;
+  const safePhoto = API.sanitizeUrl(currentUser.profile_photo);
+  if (safePhoto) {
+    avatar.innerHTML = `<img src="${safePhoto}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="Avatar">`;
   } else {
     avatar.textContent = (currentUser.full_name || 'U').charAt(0).toUpperCase();
   }

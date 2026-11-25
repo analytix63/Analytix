@@ -9,7 +9,7 @@ class EventRegistrationCreate(BaseModel):
 
 class HackathonRegistrationCreate(BaseModel):
     hackathon_id: Optional[str] = None
-    team_name: Optional[str] = ""
+    team_name: Optional[str] = Field("", max_length=100)
 
 class RegistrationStatusUpdate(BaseModel):
     status: str = Field(..., pattern="^(pending|approved|rejected|attended)$")
@@ -38,8 +38,8 @@ class HackathonRegistrationOut(BaseModel):
 
 class LeaderboardAward(BaseModel):
     member_id: str
-    points: int = Field(..., gt=0)
-    activity_description: str = Field(..., min_length=3)
+    points: int = Field(..., gt=0, le=1000)
+    activity_description: str = Field(..., min_length=3, max_length=500)
 
 class LeaderboardEntry(BaseModel):
     member_id: str

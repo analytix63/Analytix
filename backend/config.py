@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # CORS allowed origins (strictly defined, no wildcards in production)
     ALLOWED_ORIGINS: Any = os.getenv(
         "ALLOWED_ORIGINS", 
-        "https://analytix-644w.onrender.com,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500"
+        "https://analytix-lvij.onrender.com,https://analytix-644w.onrender.com,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500"
     )
     
     @property
@@ -40,13 +40,13 @@ class Settings(BaseSettings):
         elif isinstance(self.ALLOWED_ORIGINS, (list, tuple)):
             origins = [str(o).strip() for o in self.ALLOWED_ORIGINS if str(o).strip()]
         else:
-            origins = ["https://analytix-644w.onrender.com"]
+            origins = ["https://analytix-lvij.onrender.com", "https://analytix-644w.onrender.com"]
 
         # Security: Strip wildcard origin in production mode
         if self.ENVIRONMENT == "production":
             origins = [o for o in origins if o != "*"]
             if not origins:
-                origins = ["https://analytix-644w.onrender.com"]
+                origins = ["https://analytix-lvij.onrender.com", "https://analytix-644w.onrender.com"]
         return origins
     
     # Local uploads path

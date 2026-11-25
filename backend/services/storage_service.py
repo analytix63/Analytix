@@ -33,6 +33,8 @@ def validate_image_bytes(contents: bytes) -> bool:
         return True
     return False
 
+ALLOWED_BUCKETS = {"posters", "avatars", "event-photos"}
+
 class StorageService:
     @staticmethod
     async def upload_file(file: UploadFile, bucket: str = "posters") -> str:
@@ -41,6 +43,12 @@ class StorageService:
         and size validations.
         In production, Supabase Storage is mandatory (no ephemeral local disk fallback).
         """
+        if bucket not in ALLOWED_BUCKETS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid storage bucket '{bucket}'. Allowed buckets: {', '.join(sorted(ALLOWED_BUCKETS))}."
+            )
+
         if not file or not file.filename:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, 

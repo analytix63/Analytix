@@ -38,11 +38,12 @@ class AuthService:
         """
         Cryptographically validates an incoming Bearer token.
         Prioritizes authoritative Supabase Auth verification.
+        Never trusts client-supplied claims without verification.
         """
-        if not token:
+        if not token or not isinstance(token, str):
             return None
 
-        # 1. Authoritative Supabase Auth verification
+        # 1. Authoritative Supabase Auth verification (checks active status, revocation, expiration)
         if supabase_client and settings.is_supabase_configured:
             try:
                 user_resp = supabase_client.auth.get_user(token)
@@ -51,27 +52,45 @@ class AuthService:
                         "sub": str(user_resp.user.id),
                         "email": str(user_resp.user.email).lower()
                     }
+                # If Supabase actively rejected the token, do not fall through to unverified fallbacks in production
+                if settings.ENVIRONMENT == "production":
+                    logger.warning("Supabase auth.get_user returned no valid active user.")
+                    return None
             except Exception as e:
                 logger.debug(f"Supabase auth.get_user check: {e}")
+                if settings.ENVIRONMENT == "production" and not settings.SUPABASE_JWT_SECRET:
+                    return None
 
-        # 2. Project JWT Secret verification (if configured in environment)
+        # 2. Cryptographic JWT Secret verification (if SUPABASE_JWT_SECRET is configured)
         if settings.SUPABASE_JWT_SECRET:
             try:
                 payload = jwt.decode(
                     token, 
                     settings.SUPABASE_JWT_SECRET, 
                     algorithms=[ALGORITHM, "HS384", "HS512"],
-                    options={"verify_aud": False}
+                    options={"verify_exp": True, "verify_aud": False}
                 )
+                # Verify audience if present
+                aud = payload.get("aud")
+                if aud and aud not in ["authenticated", "anon"]:
+                    logger.warning(f"Invalid JWT audience claim: {aud}")
+                    return None
                 return payload
             except JWTError as e:
                 logger.debug(f"JWT Secret decode failed: {e}")
+                if settings.ENVIRONMENT == "production":
+                    return None
 
-        # 3. Fallback for non-production development testing only
-        if settings.ENVIRONMENT != "production":
+        # 3. Fallback for non-production development/test mode only (when Supabase credentials are not configured)
+        if settings.ENVIRONMENT != "production" and not settings.is_supabase_configured:
             dev_secret = "dev-only-secret-do-not-use-in-production-12345678"
             try:
-                return jwt.decode(token, dev_secret, algorithms=[ALGORITHM], options={"verify_aud": False})
+                return jwt.decode(
+                    token, 
+                    dev_secret, 
+                    algorithms=[ALGORITHM], 
+                    options={"verify_exp": True, "verify_aud": False}
+                )
             except JWTError:
                 return None
 

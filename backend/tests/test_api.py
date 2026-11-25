@@ -8,10 +8,10 @@ client = TestClient(app)
 
 # Known seeded credentials for tests
 ADMIN_EMAIL = "admin@analytixclub.edu"
-ADMIN_PASSWORD = "Admin@123"
+ADMIN_PASSWORD = "Admin@12345"
 
 MEMBER_EMAIL = "member@analytixclub.edu"
-MEMBER_PASSWORD = "Member@123"
+MEMBER_PASSWORD = "Member@12345"
 
 # --- 1. HEALTH CHECK ---
 def test_health_endpoint():
@@ -305,3 +305,40 @@ def test_leaderboard_permissions():
     lb_res = client.get("/api/members/leaderboard", headers=member_headers)
     assert lb_res.status_code == 200
     assert isinstance(lb_res.json(), list)
+
+# --- 9. SECURITY & HARDENING VERIFICATION ---
+def test_security_headers():
+    res = client.get("/api/stats")
+    assert res.status_code == 200
+    assert res.headers.get("x-content-type-options") == "nosniff"
+    assert res.headers.get("x-frame-options") == "DENY"
+    assert res.headers.get("x-xss-protection") == "1; mode=block"
+    assert "strict-origin" in res.headers.get("referrer-policy", "")
+
+def test_teams_pii_protection():
+    res = client.get("/api/members/teams")
+    assert res.status_code == 200
+    data = res.json()
+    for team_name, members in data.items():
+        for m in members:
+            assert "email" not in m, "PII leak: email must not be exposed in public team view"
+            assert "phone" not in m, "PII leak: phone must not be exposed in public team view"
+            assert "full_name" in m
+            assert "team" in m
+
+def test_malicious_photo_url_rejected():
+    member_res = client.post("/api/auth/login", json={"email": MEMBER_EMAIL, "password": MEMBER_PASSWORD})
+    member_token = member_res.json()["access_token"]
+    member_headers = {"Authorization": f"Bearer {member_token}"}
+
+    # Malicious javascript: scheme
+    bad_res = client.put("/api/members/me", headers=member_headers, json={
+        "profile_photo": "javascript:alert(1)"
+    })
+    assert bad_res.status_code == 422
+
+    # Malicious HTML injection in URL
+    bad_res2 = client.put("/api/members/me", headers=member_headers, json={
+        "profile_photo": "https://example.com/photo.png\"><script>alert(1)</script>"
+    })
+    assert bad_res2.status_code == 422
